@@ -37,11 +37,7 @@
 #include <usual/event.h>
 #include <usual/strpool.h>
 
-#ifdef DBGVER
-#define FULLVER   PACKAGE_NAME " version " PACKAGE_VERSION " (" DBGVER ")"
-#else
 #define FULLVER   PACKAGE_NAME " version " PACKAGE_VERSION
-#endif
 
 /* each state corresponds to a list */
 enum SocketState {
@@ -457,6 +453,7 @@ extern int cf_tcp_defer_accept;
 
 extern int cf_log_connections;
 extern int cf_log_disconnections;
+extern int cf_log_activations;
 extern int cf_log_pooler_errors;
 extern int cf_application_name_add_host;
 

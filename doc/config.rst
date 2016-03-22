@@ -134,7 +134,10 @@ any
 auth_query
 ----------
 
-Query to load user's password from db.
+Query to load user's password from database.
+
+Direct access to pg_shadow requires admin rights.  It's preferable to
+use non-admin user that calls SECURITY DEFINER function instead.
 
 Default: ``SELECT usename, passwd FROM pg_shadow WHERE usename=$1``
 
@@ -339,7 +342,15 @@ log_pooler_errors
 
 Log error messages pooler sends to clients.
 
-Default: 1
+log_activations
+---------------
+
+Log every time a client has waited for a client to be available, and how much time
+it has spent on that state.
+This happens when there are not any available servers and we have to wait for new
+ones to be created or become available for use.
+
+Default: 0
 
 stats_period
 ------------
@@ -848,8 +859,11 @@ auth_user
 ---------
 
 If ``auth_user`` is set, any user not specified in auth_file will be
-queried from pg_shadow in the database using auth_user. Auth_user's
-password will be taken from auth_file.
+queried from pg_shadow in the database using ``auth_user``. Auth_user's
+password will be taken from ``auth_file``.
+
+Direct access to pg_shadow requires admin rights.  It's preferable to
+use non-admin user that calls SECURITY DEFINER function instead.
 
 pool_size
 ---------
@@ -995,6 +1009,20 @@ Database defaults::
 
   ; access to destination database will go with single user
   forcedb = host=127.0.0.1 port=300 user=baz password=foo client_encoding=UNICODE datestyle=ISO
+
+Example of secure function for auth_query::
+
+  CREATE OR REPLACE FUNCTION pgbouncer.user_lookup(in i_username text, out uname text, out phash text)
+  RETURNS record AS $$
+  BEGIN
+      SELECT usename, passwd FROM pg_catalog.pg_shadow
+      WHERE usename = i_username INTO uname, phash;
+      RETURN;
+  END;
+  $$ LANGUAGE plpgsql SECURITY DEFINER;
+  REVOKE ALL ON FUNCTION pgbouncer.user_lookup(text) FROM public, pgbouncer;
+  GRANT EXECUTE ON FUNCTION pgbouncer.user_lookup(text) TO pgbouncer;
+
 
 See also
 ========

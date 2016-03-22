@@ -139,6 +139,7 @@ int cf_stats_period;
 
 int cf_log_connections;
 int cf_log_disconnections;
+int cf_log_activations;
 int cf_log_pooler_errors;
 int cf_application_name_add_host;
 
@@ -265,6 +266,7 @@ CF_ABS("stats_users", CF_STR, cf_stats_users, 0, ""),
 CF_ABS("stats_period", CF_INT, cf_stats_period, 0, "60"),
 CF_ABS("log_connections", CF_INT, cf_log_connections, 0, "1"),
 CF_ABS("log_disconnections", CF_INT, cf_log_disconnections, 0, "1"),
+CF_ABS("log_activations", CF_INT, cf_log_activations, 0, "0"),
 CF_ABS("log_pooler_errors", CF_INT, cf_log_pooler_errors, 0, "1"),
 CF_ABS("application_name_add_host", CF_INT, cf_application_name_add_host, 0, "0"),
 
@@ -513,7 +515,7 @@ static void go_daemon(void)
 {
 	int pid, fd;
 
-	if (!cf_pidfile[0])
+	if (!cf_pidfile || !cf_pidfile[0])
 		fatal("daemon needs pidfile configured");
 
 	/* don't log to stdout anymore */
@@ -568,9 +570,9 @@ static void check_pidfile(void)
 	char buf[128 + 1];
 	struct stat st;
 	pid_t pid = 0;
-	int fd, res;
+	int fd, res, err;
 
-	if (!cf_pidfile[0])
+	if (!cf_pidfile || !cf_pidfile[0])
 		return;
 
 	/* check if pidfile exists */
@@ -603,7 +605,9 @@ static void check_pidfile(void)
 
 	/* seems the pidfile is not in use */
 	log_info("Stale pidfile, removing");
-	remove_pidfile();
+	err = unlink(cf_pidfile);
+	if (err != 0)
+		fatal_perror("Cannot remove stale pidfile");
 	return;
 
 locked_pidfile:
@@ -616,7 +620,7 @@ static void write_pidfile(void)
 	pid_t pid;
 	int res, fd;
 
-	if (!cf_pidfile[0])
+	if (!cf_pidfile || !cf_pidfile[0])
 		return;
 
 	pid = getpid();
@@ -912,14 +916,16 @@ int main(int argc, char *argv[])
 
 	write_pidfile();
 
-	log_info("process up: %s, libevent %s (%s), adns: %s", PACKAGE_STRING,
-		 event_get_version(), event_get_method(), adns_get_backend());
+	log_info("process up: %s, libevent %s (%s), adns: %s, tls: %s", PACKAGE_STRING,
+		 event_get_version(), event_get_method(), adns_get_backend(),
+		 tls_backend_version());
 
 	/* main loop */
 	while (cf_shutdown < 2)
 		main_loop_once();
 
-	cleanup();
+	/* not useful for production loads */
+	if (0) cleanup();
 
 	return 0;
 }
